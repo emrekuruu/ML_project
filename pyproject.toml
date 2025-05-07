@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "financial-sentiment-analysis"
+version = "0.1.0"
+description = "Financial sentiment analysis using transformers"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+transformers = "4.48.0"
+scikit-learn = "^1.6.1"
+datasets = "^3.5.1"
+torch = "^2.7.0"
+accelerate = "0.26.0"
+tensorboard = "^2.19.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+black = "^23.3.0"
+isort = "^5.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
