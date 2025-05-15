@@ -172,3 +172,7 @@ if __name__ == "__main__":
         for mode in ["contrastive"]:
             for model in ["google-bert/bert-base-uncased", "answerdotai/ModernBERT-base", "distilbert/distilbert-base-uncased"]:
                 main(task, model, mode=mode)
+
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    print(f"GPU memory cleared after running {model} in {mode} mode")
