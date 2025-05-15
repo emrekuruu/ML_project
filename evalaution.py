@@ -1,17 +1,9 @@
-from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score, matthews_corrcoef
+import os
 import pandas as pd
-import numpy as np
-from datasets import load_dataset
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score, matthews_corrcoef
 
-def evaluate_predictions(predictions_file="predictions.csv", output_file="evaluation_results.xlsx"):
-    """
-    Evaluate model predictions using various metrics and save results to Excel.
-    
-    Args:
-        predictions_file: Path to CSV file containing predictions
-        output_file: Path to save Excel output with evaluation metrics
-    """
+def evaluate_predictions(predictions_file, output_file):
+
     # Load predictions
     df = pd.read_csv(predictions_file)
     
@@ -34,32 +26,12 @@ def evaluate_predictions(predictions_file="predictions.csv", output_file="evalua
     # Save results to Excel
     metrics_df.to_excel(output_file, index=False)
     
-    print(f"Evaluation results saved to {output_file}")
-    
     return metrics
 
 if __name__ == "__main__":
-    # Load the dataset directly
-    dataset = load_dataset("financial_phrasebank", "sentences_50agree", trust_remote_code=True)
-    df = pd.DataFrame(dataset['train'])
-    
-    # Split to get just the test set
-    _, test_texts, _, test_labels = train_test_split(
-        df['sentence'], df['label'], test_size=0.2, stratify=df['label'], random_state=42
-    )
-    
-    print(f"Loaded test dataset with {len(test_texts)} examples")
-    
-    # Evaluate predictions
-    metrics = evaluate_predictions()
-    for metric, value in metrics.items():
-        print(f"{metric}: {value:.4f}")
+    for mode in ["contrastive", "binary"]:
+        for model in os.listdir(f"results/{mode}"):
+            if model.endswith(".csv"):
+                model = model.split(".")[0]
+                metrics = evaluate_predictions(f"results/{mode}/{model}.csv", f"results/{mode}/evaluation_results_{model}.xlsx")
 
-
-
-if __name__ == "__main__":
-
-    predictions_file = "predictions.csv"
-    output_file = "evaluation_results.xlsx"
-
-    evaluate_predictions(predictions_file, output_file)
