@@ -50,17 +50,34 @@ def plot_all_model_metrics(results_root="results"):
     modes = ["contrastive", "binary"]
 
     fig, axs = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
+    
+    # Create a single legend handle
+    handles, labels = None, None
+    
     for i, mode in enumerate(modes):
         ax = axs[i]
         mode_data = pivot_df[pivot_df["Mode"] == mode]
-        mode_data.set_index("Model")[metrics].plot(kind="bar", ax=ax)
+        mode_data[metrics].plot(kind="bar", ax=ax)
         ax.set_title(f"{mode.capitalize()} Training")
         ax.set_ylabel("Score")
         ax.set_ylim(0, 1)
-        ax.legend(title="Metric", bbox_to_anchor=(1.05, 1), loc="upper left")
-
-    plt.tight_layout()
-    plt.savefig("all_model_metrics.png")
+        ax.set_xticklabels([])  # Hide x-axis labels
+        
+        # Save handles and labels from the first plot for the shared legend
+        if i == 0:
+            handles, labels = ax.get_legend_handles_labels()
+        ax.get_legend().remove()  # Remove individual legends
+    
+    # Add a single shared legend horizontally with bigger font above the figures
+    fig.legend(handles, labels, title="Metric", 
+               bbox_to_anchor=(0.5, 1.01), 
+               loc="upper center", 
+               ncol=len(metrics),  # Horizontal layout
+               fontsize=12,        # Bigger font
+               title_fontsize=14)  # Bigger title font
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.9])  # Adjust layout to make room for legend
+    plt.savefig("plots/all_model_metrics.png")
 
 
 def compute_avg_interclass_distance(X, y):
@@ -106,7 +123,7 @@ def plot_model_embedding_comparison(model_name, base_path="results"):
         ax.set_title(f"{title} Training Embeddings")
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig(f"embedding_tsne_{model_name}.png")
+    plt.savefig(f"plots/embedding_tsne_{model_name}.png")
     plt.close()
 
 
