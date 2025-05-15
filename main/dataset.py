@@ -6,7 +6,17 @@ from sklearn.model_selection import train_test_split
 def prepare_datasets(task, tokenizer, max_length=128):
     """
     Prepare train/validation/test datasets for financial, emotion, or news tasks.
+    All splits use 'sentence' for the raw text column and 'labels' for the label column.
     """
+    def unify_columns(ds, text_col, label_col):
+        # rename raw text field to 'sentence'
+        if text_col != 'sentence':
+            ds = ds.rename_column(text_col, 'sentence')
+        # rename label field to 'labels'
+        if label_col != 'labels':
+            ds = ds.rename_column(label_col, 'labels')
+        return ds
+
     # --- Task-specific loading and initial splits ---
     if task == 'financial':
         raw = load_dataset(
@@ -39,18 +49,13 @@ def prepare_datasets(task, tokenizer, max_length=128):
             'labels':  test_labels.tolist()
         })
         text_field = 'sentence'
+        label_field = 'labels'
 
     elif task == 'emotion':
-        raw = load_dataset('dair-ai/emotion', cache_dir=None)
-        train_ds = raw['train']
-        val_ds   = raw['validation']
-        test_ds  = raw['test']
+        raw = load_dataset('dair-ai/emotion')
+        train_ds, val_ds, test_ds = raw['train'], raw['validation'], raw['test']
         text_field = 'text'
-
-        # Align label column
-        train_ds = train_ds.rename_column('label', 'labels')
-        val_ds   = val_ds.rename_column('label', 'labels')
-        test_ds  = test_ds.rename_column('label', 'labels')
+        label_field = 'label'
 
     elif task == 'news':
         raw = load_dataset('SetFit/ag_news')
@@ -59,41 +64,35 @@ def prepare_datasets(task, tokenizer, max_length=128):
             stratify_by_column='label',
             seed=42
         )
-        train_ds = splits['train']
-        val_ds   = splits['test']
-        test_ds  = raw['test']
+        train_ds, val_ds, test_ds = splits['train'], splits['test'], raw['test']
         text_field = 'text'
-
-        # Align label column
-        train_ds = train_ds.rename_column('label', 'labels')
-        val_ds   = val_ds.rename_column('label', 'labels')
-        test_ds  = test_ds.rename_column('label', 'labels')
+        label_field = 'label'
 
     else:
         raise ValueError(f"Unknown task {task}")
 
-    # --- Common tokenization and formatting ---
+    # unify column names across splits
+    train_ds = unify_columns(train_ds, text_field, label_field)
+    val_ds = unify_columns(val_ds, text_field, label_field)
+    test_ds = unify_columns(test_ds, text_field, label_field)
+
+    # --- Common tokenization ---
     def tokenize_fn(examples):
         return tokenizer(
-            examples[text_field],
+            examples['sentence'],
             padding='max_length',
             truncation=True,
             max_length=max_length
         )
 
-    # Apply tokenization
     train_ds = train_ds.map(tokenize_fn, batched=True)
-    val_ds   = val_ds.map(tokenize_fn, batched=True)
-    test_ds  = test_ds.map(tokenize_fn, batched=True)
+    val_ds = val_ds.map(tokenize_fn, batched=True)
+    test_ds = test_ds.map(tokenize_fn, batched=True)
 
-    # Remove raw text column and set format for PyTorch
-    train_ds = train_ds.remove_columns([text_field])
-    train_ds.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+    # --- Format train & val for PyTorch ---
+    for ds in (train_ds, val_ds):
+        ds = ds.remove_columns(['sentence'])
+        ds.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
 
-    val_ds = val_ds.remove_columns([text_field])
-    val_ds.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-
-    test_ds = test_ds.remove_columns([text_field])
-    test_ds.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-
+    # leave test_ds unformatted so it retains 'sentence' and 'labels'
     return train_ds, val_ds, test_ds

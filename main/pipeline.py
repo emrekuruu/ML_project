@@ -46,7 +46,7 @@ class SupConLoss(nn.Module):
         return loss.mean()
 
 class SupConTrainer(Trainer):
-    def __init__(self, *args, supcon_weight=0.5, temperature=0.07, **kwargs):
+    def __init__(self, *args, supcon_weight, temperature, **kwargs):
         super().__init__(*args, **kwargs)
         self.supcon_weight = supcon_weight
         self.ce_weight = 1 - supcon_weight
@@ -68,14 +68,19 @@ class SupConTrainer(Trainer):
 
 def main(task, model_name, mode="contrastive"):  
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3)
-    model.config.output_hidden_states = True
-    model.config.return_dict = True
+    train_ds, val_ds, test_ds = prepare_datasets(task, tokenizer)
+
+    try:
+        num_labels = train_ds.features["labels"].num_classes
+    except:
+        num_labels = 3
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
-    model.to(device)
 
-    train_ds, val_ds, test_ds = prepare_datasets(task, tokenizer)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
+    model.config.output_hidden_states = True
+    model.config.return_dict = True
+    model.to(device)
 
     def compute_metrics(eval_pred: EvalPrediction):
         logits = eval_pred.predictions
@@ -87,13 +92,14 @@ def main(task, model_name, mode="contrastive"):
 
     output_dir = f"./checkpoints/{task}/{mode}/{model_name.replace('/', '_')}"
 
+
     training_args = TrainingArguments(
         output_dir=output_dir,
         eval_strategy="epoch",
         learning_rate=5e-5,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=64,
-        num_train_epochs=3,
+        per_device_train_batch_size=64,
+        per_device_eval_batch_size=128,
+        num_train_epochs=5,
         weight_decay=0.01,
         logging_dir=f"./logs/{task}/{mode}/{model_name.replace('/', '_')}",
         logging_steps=10,
@@ -111,8 +117,8 @@ def main(task, model_name, mode="contrastive"):
             eval_dataset=val_ds,
             tokenizer=tokenizer,
             compute_metrics=compute_metrics,
-            supcon_weight=0.5,
-            temperature=0.07,
+            supcon_weight=0.75,
+            temperature=0.15,
         )
     else:
         trainer = Trainer(
@@ -124,9 +130,9 @@ def main(task, model_name, mode="contrastive"):
             compute_metrics=compute_metrics
         )
 
-    if os.path.exists(output_dir + "/checkpoint-654"):
+    if os.path.exists(output_dir + "/checkpoint-750"):
         print(f"Loading existing checkpoint from {output_dir}, skipping training.")
-        model = AutoModelForSequenceClassification.from_pretrained(output_dir + "/checkpoint-654")
+        model = AutoModelForSequenceClassification.from_pretrained(output_dir + "/checkpoint-750")
         model.to(device)
         trainer.model = model
     else:
@@ -167,8 +173,9 @@ def main(task, model_name, mode="contrastive"):
     print("Saved embeddings to embeddings.csv")
 
 if __name__ == "__main__":
+
     for task in ["financial", "emotion", "news"]:
-        for mode in ["contrastive"]:
+        for mode in ["contrastive", "binary"]:
             for model in ["distilbert/distilbert-base-uncased", "google-bert/bert-base-uncased",  "google-bert/bert-large-uncased"]:
                 main(task, model, mode=mode)
 

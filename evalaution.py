@@ -131,26 +131,30 @@ def plot_model_embedding_comparison(model_name, base_path="results", task="finan
 if __name__ == "__main__":
     # Evaluate and save metrics
     for task in ["financial", "emotion", "news"]:
-        for mode in ["contrastive", "binary"]:
-            for file in os.listdir(f"results/{mode}"):
-                if file.endswith(".csv") and not file.endswith("_embeddings.csv"):
-                    model = file.split(".")[0]
-                    evaluate_predictions(
-                        predictions_file=f"results/{mode}/{model}.csv",
-                        output_file=f"results/{task}/{mode}/evaluation_results_{model}.xlsx"
-                    )
+        try:
+            for mode in ["contrastive", "binary"]:
+                for file in os.listdir(f"results/{task}/{mode}"):
+                    if file.endswith(".csv") and not file.endswith("_embeddings.csv"):
+                        model = file.split(".")[0]
+                        evaluate_predictions(
+                            predictions_file=f"results/{task}/{mode}/{model}.csv",
+                            output_file=f"results/{task}/{mode}/evaluation_results_{model}.xlsx"
+                        )
 
-        plot_all_model_metrics(results_root=f"results/{task}")
+            plot_all_model_metrics(results_root=f"results/{task}")
 
-    contrastive_models = {
-        f.replace("_embeddings.csv", "") for f in os.listdir("results/contrastive") if f.endswith("_embeddings.csv")
-    }
-    binary_models = {
-        f.replace("_embeddings.csv", "") for f in os.listdir("results/binary") if f.endswith("_embeddings.csv")
-    }
-    common_models = contrastive_models & binary_models
+            contrastive_models = {
+                f.replace("_embeddings.csv", "") for f in os.listdir(f"results/{task}/contrastive") if f.endswith("_embeddings.csv")
+            }
+            binary_models = {
+                f.replace("_embeddings.csv", "") for f in os.listdir(f"results/{task}/binary") if f.endswith("_embeddings.csv")
+            }
+            common_models = contrastive_models & binary_models
 
-    print(common_models)
-    
-    for model_name in common_models:
-        plot_model_embedding_comparison(model_name, base_path=f"results/{task}", task=task)
+            print(common_models)
+            
+            for model_name in common_models:
+                plot_model_embedding_comparison(model_name, base_path=f"results", task=task)     
+        except Exception as e:
+            print(f"Error processing {task}: {e}")
+            continue
