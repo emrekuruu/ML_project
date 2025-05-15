@@ -1,4 +1,6 @@
 import pandas as pd
+import datasets
+
 from datasets import Dataset, load_dataset
 from sklearn.model_selection import train_test_split
 
@@ -59,7 +61,16 @@ def prepare_datasets(task, tokenizer, max_length=128):
 
     elif task == 'news':
         raw = load_dataset('SetFit/ag_news')
-        splits = raw['train'].train_test_split(
+
+        # Cast the label column to ClassLabel first
+        features = raw['train'].features.copy()
+        features['label'] = datasets.ClassLabel(names=["World", "Sports", "Business", "Sci/Tech"])
+        raw = raw.cast(features)
+        
+        # Sample 40k examples from the training set, stratified by label
+        sampled_train = raw['train'].shuffle(seed=42).select(range(40000))
+        
+        splits = sampled_train.train_test_split(
             test_size=0.1,
             stratify_by_column='label',
             seed=42
