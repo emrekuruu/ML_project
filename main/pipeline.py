@@ -18,7 +18,7 @@ from transformers import (
 set_seed(42)
 
 class SupConLoss(nn.Module):
-    def __init__(self, temperature: float = 0.07):
+    def __init__(self, temperature):
         super().__init__()
         self.temperature = temperature
 
@@ -85,7 +85,7 @@ def main(task, model_name, mode="contrastive"):
         labels = eval_pred.label_ids
         return {"accuracy": accuracy_score(labels, preds)}
 
-    output_dir = f"./checkpoints/{mode}/{model_name.replace('/', '_')}"
+    output_dir = f"./checkpoints/{task}/{mode}/{model_name.replace('/', '_')}"
 
     training_args = TrainingArguments(
         output_dir=output_dir,
@@ -95,7 +95,7 @@ def main(task, model_name, mode="contrastive"):
         per_device_eval_batch_size=64,
         num_train_epochs=3,
         weight_decay=0.01,
-        logging_dir=f"./logs/{mode}/{model_name.replace('/', '_')}",
+        logging_dir=f"./logs/{task}/{mode}/{model_name.replace('/', '_')}",
         logging_steps=10,
         save_total_limit=1,
         save_strategy="epoch",
@@ -144,7 +144,7 @@ def main(task, model_name, mode="contrastive"):
         "true_label": test_ds["labels"],
         "predicted_label": pred_labels
     })
-    out_file = f"results/{mode}/{model_name.replace('/', '_')}.csv"
+    out_file = f"results/{task}/{mode}/{model_name.replace('/', '_')}.csv"
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
     df.to_csv(out_file, index=False)
     print(f"Saved predictions to {out_file}")
@@ -164,7 +164,7 @@ def main(task, model_name, mode="contrastive"):
     df_emb = pd.DataFrame(all_embeddings)
     df_emb["true_label"] = test_ds["labels"]
     df_emb["predicted_label"] = pred_labels
-    df_emb.to_csv(f"results/{mode}/{model_name.replace('/', '_')}_embeddings.csv", index=False)
+    df_emb.to_csv(f"results/{task}/{mode}/{model_name.replace('/', '_')}_embeddings.csv", index=False)
     print("Saved embeddings to embeddings.csv")
 
 if __name__ == "__main__":

@@ -77,7 +77,7 @@ def plot_all_model_metrics(results_root="results"):
                title_fontsize=14)  # Bigger title font
     
     plt.tight_layout(rect=[0, 0, 1, 0.9])  # Adjust layout to make room for legend
-    plt.savefig("plots/all_model_metrics.png")
+    plt.savefig(f"plots/{task}/all_model_metrics.png")
 
 
 def compute_avg_interclass_distance(X, y):
@@ -87,9 +87,9 @@ def compute_avg_interclass_distance(X, y):
     return np.mean(distances)
 
 
-def plot_model_embedding_comparison(model_name, base_path="results"):
-    contrastive_path = os.path.join(base_path, "contrastive", f"{model_name}_embeddings.csv")
-    binary_path = os.path.join(base_path, "binary", f"{model_name}_embeddings.csv")
+def plot_model_embedding_comparison(model_name, base_path="results", task="financial"):
+    contrastive_path = os.path.join(base_path, task, "contrastive", f"{model_name}_embeddings.csv")
+    binary_path = os.path.join(base_path, task, "binary", f"{model_name}_embeddings.csv")
 
     contrastive_df = pd.read_csv(contrastive_path)
     binary_df = pd.read_csv(binary_path)
@@ -123,26 +123,25 @@ def plot_model_embedding_comparison(model_name, base_path="results"):
         ax.set_title(f"{title} Training Embeddings")
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig(f"plots/embedding_tsne_{model_name}.png")
+    plt.savefig(f"plots/{task}/embedding_tsne_{model_name}.png")
     plt.close()
 
 
 
 if __name__ == "__main__":
     # Evaluate and save metrics
-    for mode in ["contrastive", "binary"]:
-        for file in os.listdir(f"results/{mode}"):
-            if file.endswith(".csv") and not file.endswith("_embeddings.csv"):
-                model = file.split(".")[0]
-                evaluate_predictions(
-                    predictions_file=f"results/{mode}/{model}.csv",
-                    output_file=f"results/{mode}/evaluation_results_{model}.xlsx"
-                )
+    for task in ["financial"]:
+        for mode in ["contrastive", "binary"]:
+            for file in os.listdir(f"results/{mode}"):
+                if file.endswith(".csv") and not file.endswith("_embeddings.csv"):
+                    model = file.split(".")[0]
+                    evaluate_predictions(
+                        predictions_file=f"results/{mode}/{model}.csv",
+                        output_file=f"results/{task}/{mode}/evaluation_results_{model}.xlsx"
+                    )
 
-    # Plot metrics
-    plot_all_model_metrics()
+        plot_all_model_metrics(results_root=f"results/{task}")
 
-    # Plot embeddings for common models
     contrastive_models = {
         f.replace("_embeddings.csv", "") for f in os.listdir("results/contrastive") if f.endswith("_embeddings.csv")
     }
@@ -154,4 +153,4 @@ if __name__ == "__main__":
     print(common_models)
     
     for model_name in common_models:
-        plot_model_embedding_comparison(model_name)
+        plot_model_embedding_comparison(model_name, base_path=f"results/{task}", task=task)
