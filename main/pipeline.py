@@ -167,9 +167,9 @@ def main(task, model_name, mode="contrastive"):
     print("Saved embeddings to embeddings.csv")
 
 if __name__ == "__main__":
-    for task in ["financial"]:
+    for task in ["financial", "emotion", "news"]:
         for mode in ["contrastive"]:
-            for model in ["google-bert/bert-base-uncased", "answerdotai/ModernBERT-base", "distilbert/distilbert-base-uncased"]:
+            for model in ["distilbert/distilbert-base-uncased", "google-bert/bert-base-uncased",  "google-bert/bert-large-uncased"]:
                 main(task, model, mode=mode)
 
                 if torch.cuda.is_available():
