@@ -127,19 +127,38 @@ def plot_model_embedding_comparison(model_name, base_path="results", task="finan
     plt.close()
 
 
-
 if __name__ == "__main__":
     # Evaluate and save metrics
     for task in ["financial", "emotion", "news"]:
         try:
+            # Dictionary to store all metrics for the current task
+            all_metrics = {}
+            
             for mode in ["contrastive", "binary"]:
                 for file in os.listdir(f"results/{task}/{mode}"):
                     if file.endswith(".csv") and not file.endswith("_embeddings.csv"):
                         model = file.split(".")[0]
-                        evaluate_predictions(
+                        metrics_df = evaluate_predictions(
                             predictions_file=f"results/{task}/{mode}/{model}.csv",
                             output_file=f"results/{task}/{mode}/evaluation_results_{model}.xlsx"
                         )
+                        
+                        # Create a column name that combines mode and model
+                        column_name = f"{mode}-{model}"
+                        
+                        # Convert metrics to a dictionary with metric names as keys
+                        model_metrics = dict(zip(metrics_df["Metric"], metrics_df["Value"]))
+                        
+                        # Add to the all_metrics dictionary
+                        all_metrics[column_name] = model_metrics
+
+            # Convert the combined metrics to a DataFrame and save
+            if all_metrics:
+                combined_df = pd.DataFrame(all_metrics)
+                combined_df.index.name = "Metric"
+                combined_df.reset_index(inplace=True)
+                combined_df.to_excel(f"results/{task}/performance_metrics.xlsx", index=False)
+                print(f"Combined metrics saved for {task}")
 
             plot_all_model_metrics(results_root=f"results/{task}")
 
