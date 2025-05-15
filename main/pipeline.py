@@ -149,7 +149,6 @@ def main(task, model_name, mode="contrastive"):
     df.to_csv(out_file, index=False)
     print(f"Saved predictions to {out_file}")
 
-    # ✅ Save CLS embeddings for test set
     print("Saving CLS embeddings from test set...")
     model.eval()
     all_embeddings = []
