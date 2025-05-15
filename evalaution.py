@@ -130,7 +130,7 @@ def plot_model_embedding_comparison(model_name, base_path="results", task="finan
 
 if __name__ == "__main__":
     # Evaluate and save metrics
-    for task in ["financial"]:
+    for task in ["financial", "emotion", "news"]:
         for mode in ["contrastive", "binary"]:
             for file in os.listdir(f"results/{mode}"):
                 if file.endswith(".csv") and not file.endswith("_embeddings.csv"):
