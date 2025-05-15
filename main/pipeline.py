@@ -12,7 +12,10 @@ from transformers import (
     Trainer,
     TrainingArguments,
     EvalPrediction,
+    set_seed, 
 )
+
+set_seed(42)
 
 class SupConLoss(nn.Module):
     def __init__(self, temperature: float = 0.07):
@@ -63,22 +66,17 @@ class SupConTrainer(Trainer):
         loss = self.supcon_weight * supcon_loss + self.ce_weight * ce_loss
         return (loss, outputs) if return_outputs else loss
 
-
 def main(task, model_name, mode="contrastive"):  
-    # load tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=3)
     model.config.output_hidden_states = True
     model.config.return_dict = True
 
-    # move to GPU/MPS if available
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
     model.to(device)
 
-    # prepare datasets
     train_ds, val_ds, test_ds = prepare_datasets(task, tokenizer)
 
-    # metrics
     def compute_metrics(eval_pred: EvalPrediction):
         logits = eval_pred.predictions
         if isinstance(logits, (tuple, list)):
@@ -87,8 +85,7 @@ def main(task, model_name, mode="contrastive"):
         labels = eval_pred.label_ids
         return {"accuracy": accuracy_score(labels, preds)}
 
-    # training args
-    output_dir = f"/Users/emrekuru/Developer/CS-554/project/checkpoints/{mode}/{model_name.replace('/', '_')}/checkpoint-654"
+    output_dir = f"./checkpoints/{mode}/{model_name.replace('/', '_')}"
 
     training_args = TrainingArguments(
         output_dir=output_dir,
@@ -100,43 +97,48 @@ def main(task, model_name, mode="contrastive"):
         weight_decay=0.01,
         logging_dir=f"./logs/{mode}/{model_name.replace('/', '_')}",
         logging_steps=10,
-        save_total_limit=2,
+        save_total_limit=1,
         save_strategy="epoch",
         load_best_model_at_end=True,
         no_cuda=False,
     )
 
-    # choose trainer class
-    TrainerClass = SupConTrainer if mode == "contrastive" else Trainer
-    trainer = TrainerClass(
-        model=model,
-        args=training_args,
-        train_dataset=train_ds,
-        eval_dataset=val_ds,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics,
-        supcon_weight=0.5,
-        temperature=0.07,
-    )
+    if mode == "contrastive":
+        trainer = SupConTrainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_ds,
+            eval_dataset=val_ds,
+            tokenizer=tokenizer,
+            compute_metrics=compute_metrics,
+            supcon_weight=0.5,
+            temperature=0.07,
+        )
+    else:
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_ds,
+            eval_dataset=val_ds,
+            tokenizer=tokenizer,
+            compute_metrics=compute_metrics
+        )
 
-    # if checkpoint exists, skip training
-    if os.path.exists(output_dir):
+    if os.path.exists(output_dir + "/checkpoint-654"):
         print(f"Loading existing checkpoint from {output_dir}, skipping training.")
-        model = AutoModelForSequenceClassification.from_pretrained(output_dir)
+        model = AutoModelForSequenceClassification.from_pretrained(output_dir + "/checkpoint-654")
         model.to(device)
         trainer.model = model
     else:
         print(f"Training model from scratch on {device}.")
         trainer.train()
 
-    # predict on test set
     preds_output = trainer.predict(test_ds)
     logits = preds_output.predictions
     if isinstance(logits, (tuple, list)):
         logits = logits[0] if isinstance(logits, tuple) else np.vstack(logits)
     pred_labels = np.argmax(logits, axis=1)
 
-    # save results
     df = pd.DataFrame({
         "sentence": test_ds["sentence"],
         "true_label": test_ds["labels"],
@@ -147,9 +149,26 @@ def main(task, model_name, mode="contrastive"):
     df.to_csv(out_file, index=False)
     print(f"Saved predictions to {out_file}")
 
+    # ✅ Save CLS embeddings for test set
+    print("Saving CLS embeddings from test set...")
+    model.eval()
+    all_embeddings = []
+    with torch.no_grad():
+        for batch in torch.utils.data.DataLoader(test_ds, batch_size=64):
+            inputs = tokenizer(batch["sentence"], padding=True, truncation=True, return_tensors="pt").to(device)
+            outputs = model(**inputs, output_hidden_states=True, return_dict=True)
+            cls_emb = outputs.hidden_states[-1][:, 0].cpu().numpy()
+            all_embeddings.append(cls_emb)
+
+    all_embeddings = np.vstack(all_embeddings)
+    df_emb = pd.DataFrame(all_embeddings)
+    df_emb["true_label"] = test_ds["labels"]
+    df_emb["predicted_label"] = pred_labels
+    df_emb.to_csv(f"results/{mode}/{model_name.replace('/', '_')}_embeddings.csv", index=False)
+    print("Saved embeddings to embeddings.csv")
+
 if __name__ == "__main__":
-    
     for task in ["financial"]:
-        for mode in ["contrastive", "binary"]:
+        for mode in ["contrastive"]:
             for model in ["google-bert/bert-base-uncased", "answerdotai/ModernBERT-base", "distilbert/distilbert-base-uncased"]:
                 main(task, model, mode=mode)
